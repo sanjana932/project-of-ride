@@ -1,0 +1,126 @@
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial, Helvetica, sans-serif;
+}
+
+body{
+    background:#f3f4f6;
+}
+
+.home-container{
+    min-height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    padding:20px;
+}
+
+.home-card{
+
+  width: 420px;
+  max-width: 90%;
+  background: #fff;
+  padding: 30px;
+  border-radius: 18px;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+
+  margin: 40px auto;
+  box-sizing: border-box;
+}
+
+
+.home-card h1{
+    text-align:center;
+    font-size:38px;
+}
+
+.subtitle{
+    text-align:center;
+    color:gray;
+    margin-bottom:10px;
+}
+
+.language-box{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+
+.language-box label{
+    font-weight:bold;
+}
+
+input,
+select{
+    width:100%;
+    padding:12px;
+    border:1px solid #d1d5db;
+    border-radius:10px;
+    font-size:16px;
+    outline:none;
+}
+
+input:focus,
+select:focus{
+    border-color:#2563eb;
+}
+
+.voice-btn,
+.fare-btn{
+    width:100%;
+    padding:13px;
+    border:none;
+    border-radius:10px;
+    color:white;
+    font-size:17px;
+    cursor:pointer;
+}
+
+.voice-btn{
+    background:#2563eb;
+}
+
+.voice-text{
+    margin-top:10px;
+    text-align:center;
+    color:#2563eb;
+    font-weight:bold;
+    font-size:16px;
+}
+
+.fare-btn{
+    background:#16a34a;
+}
+
+.links{
+    display:flex;
+    justify-content:space-between;
+    gap:15px;
+    margin-top:10px;
+}
+
+.register-btn,
+.login-btn{
+    flex:1;
+    text-align:center;
+    padding:12px;
+    border-radius:10px;
+    text-decoration:none;
+    font-weight:bold;
+}
+
+.register-btn{
+    background:#16a34a;
+    color:white;
+}
+
+.login-btn{
+    border:2px solid #2563eb;
+    color:#2563eb;
+}
