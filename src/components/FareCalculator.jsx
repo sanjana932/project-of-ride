@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import {
   geocodeLocation,
@@ -17,9 +16,12 @@ function FareCalculator() {
   const [city, setCity] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Fare calculation
+  // ==========================================
+  // AI FARE CALCULATION
+  // ==========================================
+
   const handleCalculateFare = async () => {
-    if (!pickup || !destination) {
+    if (!pickup.trim() || !destination.trim()) {
       alert("Please enter pickup and destination.");
       return;
     }
@@ -28,23 +30,35 @@ function FareCalculator() {
       setLoading(true);
       setFare(null);
 
-      // Pickup location
-      const pickupData = await geocodeLocation(pickup);
+      // ==========================================
+      // 1. GEOCODE PICKUP
+      // ==========================================
 
-      // Destination location
-      const destinationData = await geocodeLocation(destination);
+      const pickupData = await geocodeLocation(pickup);
 
       if (!pickupData) {
         alert("Pickup location not found. Please check the name.");
         return;
       }
 
+      // ==========================================
+      // 2. GEOCODE DESTINATION
+      // ==========================================
+
+      const destinationData =
+        await geocodeLocation(destination);
+
       if (!destinationData) {
-        alert("Destination location not found. Please check the name.");
+        alert(
+          "Destination location not found. Please check the name."
+        );
         return;
       }
 
-      // Distance
+      // ==========================================
+      // 3. CALCULATE DISTANCE
+      // ==========================================
+
       const calculatedDistance = getDistanceInKm(
         pickupData.lat,
         pickupData.lon,
@@ -52,11 +66,17 @@ function FareCalculator() {
         destinationData.lon
       );
 
-      // Travel time
+      // ==========================================
+      // 4. CALCULATE TRAVEL TIME
+      // ==========================================
+
       const calculatedTime =
         calculateTravelTime(calculatedDistance);
 
-      // City
+      // ==========================================
+      // 5. DETECT CITY
+      // ==========================================
+
       const detectedCity =
         pickupData.city ||
         destinationData.city ||
@@ -66,83 +86,65 @@ function FareCalculator() {
       setTravelTime(calculatedTime);
       setCity(detectedCity);
 
-      // --------------------------------
-      // GORAKHPUR FARE RULES
-      // --------------------------------
+      // ==========================================
+      // 6. SEND DATA TO FLASK AI MODEL
+      // ==========================================
 
-      let calculatedFare = 0;
+      const response = await fetch(
+        "http://localhost:5001/predict",
+        {
+          method: "POST",
 
-      if (detectedCity.toLowerCase().includes("gorakhpur")) {
+          headers: {
+            "Content-Type": "application/json",
+          },
 
-        if (vehicle === "Auto" || vehicle === "E-Rickshaw") {
-
-          if (calculatedDistance <= 2) {
-            calculatedFare = 20;
-          } else if (calculatedDistance <= 5) {
-            calculatedFare = 20;
-          } else if (calculatedDistance <= 8) {
-            calculatedFare = 30;
-          } else if (calculatedDistance <= 12) {
-            calculatedFare = 40;
-          } else {
-            calculatedFare = 40 + Math.ceil(
-              calculatedDistance - 12
-            ) * 5;
-          }
-
-        } else if (vehicle === "Bike") {
-
-          if (calculatedDistance <= 2) {
-            calculatedFare = 20;
-          } else if (calculatedDistance <= 5) {
-            calculatedFare = 30;
-          } else if (calculatedDistance <= 8) {
-            calculatedFare = 40;
-          } else {
-            calculatedFare = 40 + Math.ceil(
-              calculatedDistance - 8
-            ) * 5;
-          }
-
-        } else if (vehicle === "Taxi") {
-
-          if (calculatedDistance <= 2) {
-            calculatedFare = 50;
-          } else if (calculatedDistance <= 5) {
-            calculatedFare = 70;
-          } else if (calculatedDistance <= 8) {
-            calculatedFare = 100;
-          } else {
-            calculatedFare = 100 + Math.ceil(
-              calculatedDistance - 8
-            ) * 10;
-          }
-
-        } else if (vehicle === "Bus") {
-
-          if (calculatedDistance <= 5) {
-            calculatedFare = 10;
-          } else if (calculatedDistance <= 10) {
-            calculatedFare = 20;
-          } else {
-            calculatedFare = 30;
-          }
+          body: JSON.stringify({
+            pickup: pickup,
+            destination: destination,
+            vehicle_type: vehicle,
+            distance: calculatedDistance,
+          }),
         }
+      );
 
-      } else {
-        // Other cities
-        // Temporary estimated fare
-        calculatedFare =
-          vehicle === "Taxi"
-            ? Math.max(50, Math.ceil(calculatedDistance) * 15)
-            : Math.max(20, Math.ceil(calculatedDistance) * 10);
+      // ==========================================
+      // 7. CHECK API RESPONSE
+      // ==========================================
+
+      if (!response.ok) {
+        throw new Error(
+          `AI Server Error: ${response.status}`
+        );
       }
 
-      setFare(calculatedFare);
+      const result = await response.json();
+
+      console.log("🤖 AI Fare Response:", result);
+
+      // ==========================================
+      // 8. SET AI PREDICTED FARE
+      // ==========================================
+
+      if (result.success) {
+        setFare(result.predicted_fare);
+      } else {
+        alert(
+          result.error ||
+            "AI could not calculate the fare."
+        );
+      }
 
     } catch (error) {
-      console.error("Fare Calculation Error:", error);
-      alert("Unable to calculate fare.");
+      console.error(
+        "AI Fare Calculation Error:",
+        error
+      );
+
+      alert(
+        "Unable to connect with SmartRide AI service. Make sure Flask is running on port 5001."
+      );
+
     } finally {
       setLoading(false);
     }
@@ -153,70 +155,129 @@ function FareCalculator() {
 
       <h2>💰 Smart Fare Calculator</h2>
 
-      {/* Pickup */}
+      {/* ======================================
+          PICKUP
+      ====================================== */}
+
       <input
         type="text"
         placeholder="📍 Pickup Location"
         value={pickup}
-        onChange={(e) => setPickup(e.target.value)}
+        onChange={(e) =>
+          setPickup(e.target.value)
+        }
       />
 
-      {/* Destination */}
+      {/* ======================================
+          DESTINATION
+      ====================================== */}
+
       <input
         type="text"
         placeholder="📍 Destination"
         value={destination}
-        onChange={(e) => setDestination(e.target.value)}
+        onChange={(e) =>
+          setDestination(e.target.value)
+        }
       />
 
-      {/* Vehicle */}
+      {/* ======================================
+          VEHICLE
+      ====================================== */}
+
       <select
         value={vehicle}
-        onChange={(e) => setVehicle(e.target.value)}
+        onChange={(e) =>
+          setVehicle(e.target.value)
+        }
       >
-        <option value="Auto">🚖 Auto</option>
-        <option value="E-Rickshaw">🛺 E-Rickshaw</option>
-        <option value="Bike">🏍 Bike</option>
-        <option value="Taxi">🚕 Taxi</option>
-        <option value="Bus">🚌 Bus</option>
+        <option value="Auto">
+          🚖 Auto
+        </option>
+
+        <option value="E-Rickshaw">
+          🛺 E-Rickshaw
+        </option>
+
+        <option value="Bike">
+          🏍 Bike
+        </option>
+
+        <option value="Taxi">
+          🚕 Taxi
+        </option>
+
+        <option value="Bus">
+          🚌 Bus
+        </option>
       </select>
 
-      {/* Calculate */}
+      {/* ======================================
+          CALCULATE BUTTON
+      ====================================== */}
+
       <button
         onClick={handleCalculateFare}
         disabled={loading}
       >
         {loading
-          ? "Calculating..."
+          ? "🤖 AI Calculating..."
           : "💰 Calculate Fare"}
       </button>
 
-      {/* Result */}
+      {/* ======================================
+          RESULT
+      ====================================== */}
+
       {fare !== null && (
         <div className="fare-result">
 
-          <h3>✅ Fare Details</h3>
+          <h3>
+            🤖 SmartRide AI Fare Result
+          </h3>
 
           <p>
-            📍 City: <strong>{city}</strong>
+            📍 City:{" "}
+            <strong>{city}</strong>
           </p>
 
           <p>
-            🚗 Vehicle: <strong>{vehicle}</strong>
+            📍 Pickup:{" "}
+            <strong>{pickup}</strong>
           </p>
 
           <p>
-            📏 Distance: <strong>{distance} km</strong>
+            📍 Destination:{" "}
+            <strong>{destination}</strong>
           </p>
 
           <p>
-            ⏱️ Estimated Time:
-            <strong> {travelTime}</strong>
+            🚗 Vehicle:{" "}
+            <strong>{vehicle}</strong>
           </p>
 
           <p>
-            💰 Estimated Fare:
-            <strong> ₹{fare}</strong>
+            📏 Distance:{" "}
+            <strong>
+              {Number(distance).toFixed(2)} km
+            </strong>
+          </p>
+
+          <p>
+            ⏱️ Estimated Time:{" "}
+            <strong>{travelTime}</strong>
+          </p>
+
+          <p>
+            💰 AI Estimated Fare:{" "}
+            <strong>
+              ₹{Number(fare).toFixed(2)}
+            </strong>
+          </p>
+
+          <p>
+            🤖 Fare predicted using{" "}
+            <strong>Random Forest ML</strong>
           </p>
 
         </div>

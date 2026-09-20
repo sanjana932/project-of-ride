@@ -3,6 +3,8 @@ import { useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 
 function StandOwnerDashboard() {
+  const user = JSON.parse(localStorage.getItem("user"));
+  
   const [showQR, setShowQR] = useState(false);
   const [paymentStatus, setPaymentStatus] = useState("Pending");
 const [transactionId, setTransactionId] = useState("");
@@ -32,7 +34,7 @@ const [paymentHistory, setPaymentHistory] = useState([]);
 
       {/* Welcome */}
       <div className="dashboard-card">
-        <h2>👋 Welcome, Stand Owner</h2>
+        <h2>👋 Welcome, {user?.name || "Stand Owner"}</h2>
         <p>
           Manage your stand, drivers and rent payments.
         </p>

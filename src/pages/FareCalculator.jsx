@@ -1,3 +1,4 @@
+```jsx
 import { useState } from "react";
 import Map from "../components/Map";
 import "../styles/FareCalculator.css";
@@ -13,7 +14,6 @@ import "../styles/FareCalculator.css";
 function calculateGorakhpurFare(vehicle, distanceKm) {
   if (vehicle === "Auto" || vehicle === "E-Rickshaw") {
     const slabs = Math.max(1, Math.ceil(distanceKm / 2));
-
     return slabs * 10;
   }
 
@@ -26,27 +26,58 @@ function calculateGorakhpurFare(vehicle, distanceKm) {
 // ===============================
 
 async function getLocation(location) {
-  const url =
-    `https://nominatim.openstreetmap.org/search?` +
-    `format=jsonv2&limit=1&countrycodes=in&q=${encodeURIComponent(location)}`;
 
-  const response = await fetch(url);
+  const queries = [
+    `${location}, Gorakhpur, Uttar Pradesh, India`,
+    `${location}, Gorakhpur, India`,
+    `${location}, Uttar Pradesh, India`,
+    `${location}, India`,
+  ];
 
-  if (!response.ok) {
-    throw new Error("Location search failed");
+  for (const query of queries) {
+
+    try {
+
+      const url =
+        `https://nominatim.openstreetmap.org/search?` +
+        `format=jsonv2&limit=5&countrycodes=in&q=${encodeURIComponent(query)}`;
+
+      console.log("Searching:", query);
+
+      const response = await fetch(url);
+
+      if (!response.ok) {
+        continue;
+      }
+
+      const data = await response.json();
+
+      if (data && data.length > 0) {
+
+        // Prefer Gorakhpur result
+        const gorakhpurResult = data.find((item) =>
+          item.display_name
+            ?.toLowerCase()
+            .includes("gorakhpur")
+        );
+
+        const result = gorakhpurResult || data[0];
+
+        return {
+          lat: Number(result.lat),
+          lon: Number(result.lon),
+          name: result.display_name,
+        };
+      }
+
+    } catch (error) {
+      console.error("Search error:", error);
+    }
   }
 
-  const data = await response.json();
-
-  if (!data || data.length === 0) {
-    throw new Error(`Location not found: ${location}`);
-  }
-
-  return {
-    lat: Number(data[0].lat),
-    lon: Number(data[0].lon),
-    name: data[0].display_name,
-  };
+  throw new Error(
+    `Location not found: ${location}`
+  );
 }
 
 
@@ -55,6 +86,7 @@ async function getLocation(location) {
 // ===============================
 
 async function getRoute(pickup, destination) {
+
   const url =
     `https://router.project-osrm.org/route/v1/driving/` +
     `${pickup.lon},${pickup.lat};` +
@@ -69,7 +101,11 @@ async function getRoute(pickup, destination) {
 
   const data = await response.json();
 
-  if (data.code !== "Ok" || !data.routes.length) {
+  if (
+    data.code !== "Ok" ||
+    !data.routes ||
+    data.routes.length === 0
+  ) {
     throw new Error("Route could not be found");
   }
 
@@ -87,10 +123,11 @@ async function getRoute(pickup, destination) {
 
 
 // ===============================
-// FARE CALCULATOR COMPONENT
+// FARE CALCULATOR
 // ===============================
 
 function FareCalculator() {
+
   const [pickupInput, setPickupInput] = useState("");
   const [destinationInput, setDestinationInput] = useState("");
 
@@ -136,25 +173,38 @@ function FareCalculator() {
 
     try {
 
-      // Search pickup
+      // ===============================
+      // PICKUP LOCATION
+      // ===============================
+
       const pickupLocation = await getLocation(
-        `${pickupInput}, India`
+        pickupInput.trim()
       );
 
-      // Search destination
+
+      // ===============================
+      // DESTINATION LOCATION
+      // ===============================
+
       const destinationLocation = await getLocation(
-        `${destinationInput}, India`
+        destinationInput.trim()
       );
 
 
-      // Get route
+      // ===============================
+      // ROUTE
+      // ===============================
+
       const routeData = await getRoute(
         pickupLocation,
         destinationLocation
       );
 
 
-      // Save location & route
+      // ===============================
+      // SAVE DATA
+      // ===============================
+
       setPickup(pickupLocation);
       setDestination(destinationLocation);
 
@@ -185,7 +235,6 @@ function FareCalculator() {
         destinationIsGorakhpur
       ) {
 
-        // Calculate slab fare
         const calculatedFare =
           calculateGorakhpurFare(
             vehicle,
@@ -205,10 +254,10 @@ function FareCalculator() {
 
     } catch (err) {
 
-      console.error(err);
+      console.error("Fare calculation error:", err);
 
       setError(
-        "Location or route could not be found. Please check the spelling."
+        "Location not found! Please check city or place names."
       );
 
     } finally {
@@ -311,16 +360,20 @@ function FareCalculator() {
           }
         >
 
-          <option>Auto</option>
+          <option value="Auto">
+            Auto
+          </option>
 
-          <option>E-Rickshaw</option>
+          <option value="E-Rickshaw">
+            E-Rickshaw
+          </option>
 
         </select>
 
       </div>
 
 
-      {/* CHECK FARE BUTTON */}
+      {/* CHECK FARE */}
 
       <button
         className="check-fare-btn"
@@ -425,3 +478,4 @@ function FareCalculator() {
 }
 
 export default FareCalculator;
+```
