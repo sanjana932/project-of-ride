@@ -1,33 +1,189 @@
-import numpy as np
 import pandas as pd
-from sklearn.ensemble import RandomForestRegressor
 import joblib
 
-# Dummy Dataset for SmartRide Fare Prediction
-# Features: [distance_km, vehicle_type_code]
-# Vehicle Codes: Bike=1, E-Rickshaw=2, Auto=3, Taxi=4, Bus=5
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+from sklearn.ensemble import RandomForestRegressor
 
-X = np.array([
-    [1.5, 1], [3.0, 1], [5.5, 1], [10.0, 1],  # Bike
-    [1.0, 2], [2.5, 2], [4.0, 2], [6.0, 2],   # E-Rickshaw
-    [2.0, 3], [5.0, 3], [8.0, 3], [12.0, 3],  # Auto
-    [3.0, 4], [7.0, 4], [15.0, 4], [25.0, 4], # Taxi
-    [5.0, 5], [10.0, 5], [20.0, 5], [30.0, 5] # Bus
-])
 
-# Target Fares (INR)
-y = np.array([
-    25, 40, 60, 95,      # Bike Fares
-    20, 35, 50, 70,      # E-Rickshaw Fares
-    40, 75, 110, 160,    # Auto Fares
-    80, 160, 320, 500,   # Taxi Fares
-    30, 50, 80, 110      # Bus Fares
-])
+# ============================================================
+# SMART RIDE AI - FARE MODEL TRAINING
+# ============================================================
 
-# Train Random Forest ML Model
-model = RandomForestRegressor(n_estimators=100, random_state=42)
-model.fit(X, y)
+# Training Dataset
+# ------------------------------------------------------------
+# Pickup + Destination route ko bhi ML input diya ja raha hai.
+#
+# Vehicle:
+# Bike
+# E-Rickshaw
+# Auto
+# Taxi
+# Bus
+#
+# Fare = observed/local fare used for training
+# ------------------------------------------------------------
 
-# Save Model to fare_model.pkl
-joblib.dump(model, 'fare_model.pkl')
-print("🎉 Model trained successfully and saved as 'fare_model.pkl'!")
+data = [
+    # --------------------------------------------------------
+    # AUTO
+    # --------------------------------------------------------
+    ["AIIMS Gorakhpur", "Mohaddipur", "Auto", 2.68, 10],
+    ["AIIMS Gorakhpur", "Shastri Chowk", "Auto", 5.0, 20],
+    ["Mohaddipur", "Shastri Chowk", "Auto", 2.0, 15],
+    ["Shastri Chowk", "AIIMS Gorakhpur", "Auto", 5.0, 20],
+    ["Mohaddipur", "AIIMS Gorakhpur", "Auto", 2.68, 10],
+
+    # General local examples
+    ["Kunraghat", "Shastri Chowk", "Auto", 4.0, 20],
+    ["Shastri Chowk", "Kachahari", "Auto", 2.0, 10],
+    ["AIIMS Gorakhpur", "Kachahari", "Auto", 5.0, 20],
+    ["Gorakhpur Railway Station", "Shastri Chowk", "Auto", 3.0, 20],
+    ["Gorakhpur Railway Station", "Kachahari", "Auto", 2.5, 20],
+
+    # --------------------------------------------------------
+    # E-RICKSHAW
+    # --------------------------------------------------------
+    ["AIIMS Gorakhpur", "Mohaddipur", "E-Rickshaw", 2.68, 10],
+    ["AIIMS Gorakhpur", "Shastri Chowk", "E-Rickshaw", 5.0, 20],
+    ["Mohaddipur", "Shastri Chowk", "E-Rickshaw", 2.0, 15],
+    ["Shastri Chowk", "AIIMS Gorakhpur", "E-Rickshaw", 5.0, 20],
+
+    # --------------------------------------------------------
+    # BIKE
+    # --------------------------------------------------------
+    ["AIIMS Gorakhpur", "Mohaddipur", "Bike", 2.68, 20],
+    ["AIIMS Gorakhpur", "Shastri Chowk", "Bike", 5.0, 30],
+    ["Mohaddipur", "Shastri Chowk", "Bike", 2.0, 20],
+
+    # --------------------------------------------------------
+    # TAXI
+    # --------------------------------------------------------
+    ["AIIMS Gorakhpur", "Mohaddipur", "Taxi", 2.68, 80],
+    ["AIIMS Gorakhpur", "Shastri Chowk", "Taxi", 5.0, 120],
+    ["Mohaddipur", "Shastri Chowk", "Taxi", 2.0, 70],
+
+    # --------------------------------------------------------
+    # BUS
+    # --------------------------------------------------------
+    ["AIIMS Gorakhpur", "Mohaddipur", "Bus", 2.68, 10],
+    ["AIIMS Gorakhpur", "Shastri Chowk", "Bus", 5.0, 15],
+    ["Mohaddipur", "Shastri Chowk", "Bus", 2.0, 10],
+]
+
+
+# ============================================================
+# DATAFRAME
+# ============================================================
+
+df = pd.DataFrame(
+    data,
+    columns=[
+        "pickup",
+        "destination",
+        "vehicle_type",
+        "distance_km",
+        "fare"
+    ]
+)
+
+
+print("\n================ DATASET ================\n")
+print(df)
+
+
+# ============================================================
+# FEATURES AND TARGET
+# ============================================================
+
+X = df[
+    [
+        "pickup",
+        "destination",
+        "vehicle_type",
+        "distance_km"
+    ]
+]
+
+y = df["fare"]
+
+
+# ============================================================
+# PREPROCESSING
+# ============================================================
+
+categorical_features = [
+    "pickup",
+    "destination",
+    "vehicle_type"
+]
+
+numeric_features = [
+    "distance_km"
+]
+
+
+preprocessor = ColumnTransformer(
+    transformers=[
+        (
+            "categorical",
+            OneHotEncoder(
+                handle_unknown="ignore"
+            ),
+            categorical_features
+        ),
+        (
+            "numeric",
+            "passthrough",
+            numeric_features
+        )
+    ]
+)
+
+
+# ============================================================
+# RANDOM FOREST MODEL
+# ============================================================
+
+model = RandomForestRegressor(
+    n_estimators=200,
+    random_state=42
+)
+
+
+# ============================================================
+# PIPELINE
+# ============================================================
+
+pipeline = Pipeline(
+    steps=[
+        ("preprocessor", preprocessor),
+        ("model", model)
+    ]
+)
+
+
+# ============================================================
+# TRAIN MODEL
+# ============================================================
+
+print("\nTraining SmartRide AI model...\n")
+
+pipeline.fit(X, y)
+
+
+# ============================================================
+# SAVE MODEL
+# ============================================================
+
+joblib.dump(
+    pipeline,
+    "fare_model.pkl"
+)
+
+
+print("============================================")
+print("🎉 SmartRide AI Model Trained Successfully!")
+print("📁 Model saved as: fare_model.pkl")
+print("============================================")

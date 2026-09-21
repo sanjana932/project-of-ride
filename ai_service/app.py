@@ -1,84 +1,219 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import joblib
-import numpy as np
+import pandas as pd
 import os
 
 app = Flask(__name__)
-CORS(app)  # React & Node.js se requests allow karne ke liye
+CORS(app)
 
-# Model File Path
-MODEL_PATH = 'fare_model.pkl'
 
-# Vehicle Type Ko Numeric Code Me Map Karna (ML Model Input Ke Liye)
-VEHICLE_MAP = {
-    'Bike': 1,
-    'E-Rickshaw': 2,
-    'Auto': 3,
-    'Taxi': 4,
-    'Bus': 5
-}
+# ============================================================
+# MODEL PATH
+# ============================================================
 
-# Pickle Model Load Karein
+MODEL_PATH = "fare_model.pkl"
+
 model = None
+
+
+# ============================================================
+# LOAD TRAINED ML MODEL
+# ============================================================
+
 if os.path.exists(MODEL_PATH):
+
     try:
         model = joblib.load(MODEL_PATH)
-        print("✅ ML Model (fare_model.pkl) Loaded Successfully!")
-    except Exception as e:
-        print("⚠️ Error loading fare_model.pkl:", e)
-else:
-    print("⚠️ fare_model.pkl file nahi mili! Backup mathematical formula use hoga.")
 
-@app.route('/', methods=['GET'])
+        print("============================================")
+        print("✅ SmartRide AI Model Loaded Successfully!")
+        print("============================================")
+
+    except Exception as e:
+
+        print("❌ Error loading fare_model.pkl:")
+        print(e)
+
+else:
+
+    print("⚠️ fare_model.pkl not found!")
+
+
+# ============================================================
+# HOME ROUTE
+# ============================================================
+
+@app.route("/", methods=["GET"])
 def home():
+
     return jsonify({
-        'status': 'Online',
-        'service': 'SmartRide AI Fare Prediction Microservice'
+        "status": "Online",
+        "service": "SmartRide AI Fare Prediction API",
+        "model_loaded": model is not None
     })
 
-@app.route('/predict', methods=['POST'])
+
+# ============================================================
+# FARE PREDICTION
+# ============================================================
+
+@app.route("/predict", methods=["POST"])
 def predict_fare():
+
     try:
+
         data = request.get_json()
-        distance = float(data.get('distance', 0))
-        vehicle = data.get('vehicle_type', 'Auto')
 
-        # Vehicle code extract karein
-        vehicle_code = VEHICLE_MAP.get(vehicle, 3)
+        # ----------------------------------------------------
+        # GET DATA FROM REACT
+        # ----------------------------------------------------
 
-        predicted_fare = 0
-        method_used = ""
+        pickup = data.get("pickup", "").strip()
+        destination = data.get("destination", "").strip()
+        vehicle = data.get("vehicle_type", "Auto").strip()
 
-        # Strategy 1: Trained ML Model Se Predict Karein
-        if model:
-            # Model Input Format: [[distance, vehicle_code]]
-            features = np.array([[distance, vehicle_code]])
-            predicted_fare = model.predict(features)[0]
-            method_used = "Trained ML Model (fare_model.pkl)"
-        
-        # Strategy 2: Dynamic Backup Formula (Agar .pkl file missing ho)
-        else:
-            base_rates = {1: 8, 2: 10, 3: 12, 4: 18, 5: 5}
-            rate = base_rates.get(vehicle_code, 10)
-            predicted_fare = 15 + (distance * rate)  # Base Fare 15 + (Dist * Rate)
-            method_used = "Fallback AI Heuristic Engine"
+        distance = float(
+            data.get("distance", 0)
+        )
+
+
+        # ----------------------------------------------------
+        # VALIDATION
+        # ----------------------------------------------------
+
+        if not pickup:
+
+            return jsonify({
+                "success": False,
+                "error": "Pickup location is required"
+            }), 400
+
+
+        if not destination:
+
+            return jsonify({
+                "success": False,
+                "error": "Destination is required"
+            }), 400
+
+
+        if distance <= 0:
+
+            return jsonify({
+                "success": False,
+                "error": "Distance must be greater than 0"
+            }), 400
+
+
+        # ----------------------------------------------------
+        # CHECK MODEL
+        # ----------------------------------------------------
+
+        if model is None:
+
+            return jsonify({
+                "success": False,
+                "error": "ML model is not loaded"
+            }), 500
+
+
+        # ----------------------------------------------------
+        # CREATE INPUT DATAFRAME
+        # ----------------------------------------------------
+
+        input_data = pd.DataFrame([
+            {
+                "pickup": pickup,
+                "destination": destination,
+                "vehicle_type": vehicle,
+                "distance_km": distance
+            }
+        ])
+
+
+        print("\n============================================")
+        print("🚕 NEW FARE PREDICTION")
+        print("============================================")
+        print("Pickup      :", pickup)
+        print("Destination :", destination)
+        print("Vehicle     :", vehicle)
+        print("Distance    :", distance, "km")
+
+
+        # ----------------------------------------------------
+        # ML PREDICTION
+        # ----------------------------------------------------
+
+        predicted_fare = model.predict(input_data)[0]
+
+
+        # ----------------------------------------------------
+        # ROUND FARE
+        # ----------------------------------------------------
+
+        predicted_fare = round(
+            float(predicted_fare),
+            2
+        )
+
+
+        print("Predicted Fare:", predicted_fare)
+        print("============================================")
+
+
+        # ----------------------------------------------------
+        # RESPONSE
+        # ----------------------------------------------------
 
         return jsonify({
-            'success': True,
-            'predicted_fare': round(float(predicted_fare), 2),
-            'distance_km': distance,
-            'vehicle': vehicle,
-            'engine': method_used
+
+            "success": True,
+
+            "pickup": pickup,
+
+            "destination": destination,
+
+            "vehicle": vehicle,
+
+            "distance_km": distance,
+
+            "predicted_fare": predicted_fare,
+
+            "currency": "INR",
+
+            "engine": "Random Forest ML Model"
+
         })
 
+
     except Exception as e:
-        print("Prediction Error:", str(e))
+
+        print("\n❌ Prediction Error:")
+        print(str(e))
+
         return jsonify({
-            'success': False,
-            'error': str(e)
+
+            "success": False,
+
+            "error": str(e)
+
         }), 500
 
-if __name__ == '__main__':
-    # Node.js backend port 5000 par hota hai, Flask Port 5001 par chalega
-    app.run(host='0.0.0.0', port=5001, debug=True)
+
+# ============================================================
+# RUN FLASK SERVER
+# ============================================================
+
+if __name__ == "__main__":
+
+    print("============================================")
+    print("🚀 SmartRide AI Service Starting...")
+    print("📡 Port: 5001")
+    print("============================================")
+
+    app.run(
+        host="0.0.0.0",
+        port=5001,
+        debug=True
+    )
