@@ -8,12 +8,7 @@
 // 1. CALCULATE DISTANCE
 // ==========================================
 
-export function getDistanceInKm(
-  lat1,
-  lon1,
-  lat2,
-  lon2
-) {
+export function getDistanceInKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
 
   const dLat =
@@ -64,10 +59,7 @@ export function calculateTravelTime(distanceKm) {
 // 3. CREATE NOMINATIM URL
 // ==========================================
 
-function createSearchUrl(
-  query,
-  indiaOnly = false
-) {
+function createSearchUrl(query, indiaOnly = true) {
   let url =
     "https://nominatim.openstreetmap.org/search" +
     "?format=json" +
@@ -99,7 +91,50 @@ function normalizeText(text) {
 
 
 // ==========================================
-// 5. SCORE RESULT
+// 5. GET CITY FROM RESULT
+// ==========================================
+
+function getResultCity(result) {
+  const address = result?.address || {};
+
+  return (
+    address.city ||
+    address.town ||
+    address.municipality ||
+    address.village ||
+    address.city_district ||
+    address.county ||
+    ""
+  );
+}
+
+
+// ==========================================
+// 6. GET LOCATION TEXT
+// ==========================================
+
+function getLocationText(result) {
+  const address = result?.address || {};
+
+  return normalizeText(
+    [
+      result?.name,
+      address.road,
+      address.suburb,
+      address.neighbourhood,
+      address.quarter,
+      getResultCity(result),
+      address.state,
+      address.country,
+    ]
+      .filter(Boolean)
+      .join(" ")
+  );
+}
+
+
+// ==========================================
+// 7. SCORE RESULT
 // ==========================================
 
 function scoreResult(
@@ -109,13 +144,10 @@ function scoreResult(
 ) {
   let score = 0;
 
-  const input =
-    normalizeText(searchText);
+  const input = normalizeText(searchText);
 
   const displayName =
-    normalizeText(
-      result.display_name
-    );
+    normalizeText(result.display_name);
 
   const name =
     normalizeText(result.name);
@@ -130,24 +162,13 @@ function scoreResult(
     normalizeText(address.suburb);
 
   const neighbourhood =
-    normalizeText(
-      address.neighbourhood
-    );
+    normalizeText(address.neighbourhood);
+
+  const quarter =
+    normalizeText(address.quarter);
 
   const city =
-    normalizeText(
-      address.city ||
-      address.town ||
-      address.municipality ||
-      address.village ||
-      address.county
-    );
-
-  const district =
-    normalizeText(
-      address.city_district ||
-      address.county
-    );
+    normalizeText(getResultCity(result));
 
   const state =
     normalizeText(address.state);
@@ -155,60 +176,99 @@ function scoreResult(
   const country =
     normalizeText(address.country);
 
+  const type =
+    normalizeText(result.type);
+
+  const category =
+    normalizeText(result.category);
+
 
   // ==========================================
-  // EXACT MATCHES
+  // COUNTRY CHECK
+  // ==========================================
+
+  if (country === "india") {
+    score += 50;
+  } else if (country) {
+    score -= 200;
+  }
+
+
+  // ==========================================
+  // EXACT MATCH
   // ==========================================
 
   if (name === input) {
-    score += 150;
-  }
-
-  if (suburb === input) {
-    score += 150;
-  }
-
-  if (neighbourhood === input) {
-    score += 150;
+    score += 200;
   }
 
   if (road === input) {
-    score += 140;
+    score += 180;
+  }
+
+  if (suburb === input) {
+    score += 180;
+  }
+
+  if (neighbourhood === input) {
+    score += 180;
+  }
+
+  if (quarter === input) {
+    score += 170;
   }
 
   if (city === input) {
-    score += 120;
+    score += 170;
   }
 
 
   // ==========================================
-  // PARTIAL MATCHES
+  // PARTIAL MATCH
   // ==========================================
 
-  if (name.includes(input)) {
+  if (name && input.includes(name)) {
+    score += 100;
+  }
+
+  if (name && name.includes(input)) {
+    score += 100;
+  }
+
+  if (road && road.includes(input)) {
+    score += 90;
+  }
+
+  if (suburb && suburb.includes(input)) {
+    score += 90;
+  }
+
+  if (
+    neighbourhood &&
+    neighbourhood.includes(input)
+  ) {
+    score += 90;
+  }
+
+  if (
+    quarter &&
+    quarter.includes(input)
+  ) {
     score += 80;
   }
 
-  if (suburb.includes(input)) {
-    score += 80;
-  }
 
-  if (neighbourhood.includes(input)) {
-    score += 80;
-  }
-
-  if (road.includes(input)) {
-    score += 70;
-  }
+  // ==========================================
+  // DISPLAY NAME MATCH
+  // ==========================================
 
   if (displayName.includes(input)) {
-    score += 40;
+    score += 60;
   }
 
 
   // ==========================================
   // CONTEXT MATCH
-  // Pickup city/state is used here
   // ==========================================
 
   if (context) {
@@ -222,42 +282,59 @@ function scoreResult(
       normalizeText(context.country);
 
 
-    // Same city
+    // ----------------------------------------
+    // SAME CITY
+    // ----------------------------------------
+
     if (
       contextCity &&
-      (
-        city === contextCity ||
-        suburb === contextCity ||
-        neighbourhood === contextCity ||
-        displayName.includes(contextCity)
-      )
+      city &&
+      city === contextCity
     ) {
-      score += 250;
+      score += 300;
 
       console.log(
-        "✅ Same city context:",
+        "✅ Same city:",
         contextCity
       );
     }
 
 
-    // Same state
+    // ----------------------------------------
+    // CITY APPEARS IN DISPLAY NAME
+    // ----------------------------------------
+
     if (
-      contextState &&
-      state &&
-      state.includes(contextState)
+      contextCity &&
+      displayName.includes(contextCity)
     ) {
-      score += 100;
+      score += 150;
     }
 
 
-    // Same country
+    // ----------------------------------------
+    // SAME STATE
+    // ----------------------------------------
+
+    if (
+      contextState &&
+      state &&
+      state === contextState
+    ) {
+      score += 120;
+    }
+
+
+    // ----------------------------------------
+    // SAME COUNTRY
+    // ----------------------------------------
+
     if (
       contextCountry &&
       country &&
-      country.includes(contextCountry)
+      country === contextCountry
     ) {
-      score += 30;
+      score += 50;
     }
   }
 
@@ -265,12 +342,6 @@ function scoreResult(
   // ==========================================
   // LOCATION TYPE
   // ==========================================
-
-  const type =
-    normalizeText(result.type);
-
-  const category =
-    normalizeText(result.category);
 
   if (
     type === "suburb" ||
@@ -284,7 +355,7 @@ function scoreResult(
     type === "road" ||
     type === "street"
   ) {
-    score += 30;
+    score += 35;
   }
 
   if (
@@ -292,28 +363,26 @@ function scoreResult(
     type === "town" ||
     type === "village"
   ) {
-    score += 25;
+    score += 30;
   }
 
   if (category === "place") {
-    score += 15;
+    score += 20;
   }
 
 
   // ==========================================
-  // PENALTY
-  // Result doesn't contain searched name
+  // INPUT NOT FOUND IN RESULT
   // ==========================================
 
+  const combinedText =
+    getLocationText(result);
+
   if (
-    !name.includes(input) &&
-    !suburb.includes(input) &&
-    !neighbourhood.includes(input) &&
-    !road.includes(input) &&
-    !city.includes(input) &&
-    !displayName.includes(input)
+    input &&
+    !combinedText.includes(input)
   ) {
-    score -= 100;
+    score -= 120;
   }
 
 
@@ -322,7 +391,7 @@ function scoreResult(
 
 
 // ==========================================
-// 6. SELECT BEST RESULT
+// 8. SELECT BEST RESULT
 // ==========================================
 
 function selectBestResult(
@@ -337,6 +406,7 @@ function selectBestResult(
     return null;
   }
 
+
   const scoredResults =
     results.map((result) => ({
       result,
@@ -347,17 +417,18 @@ function selectBestResult(
       ),
     }));
 
+
   scoredResults.sort(
-    (a, b) =>
-      b.score - a.score
+    (a, b) => b.score - a.score
   );
+
 
   console.log(
     "================================"
   );
 
   console.log(
-    "📊 Scored Location Results:"
+    "📍 LOCATION SEARCH RESULTS"
   );
 
   scoredResults.forEach(
@@ -373,12 +444,13 @@ function selectBestResult(
     "================================"
   );
 
+
   return scoredResults[0].result;
 }
 
 
 // ==========================================
-// 7. CONVERT NOMINATIM RESULT
+// 9. CONVERT RESULT
 // ==========================================
 
 function convertResultToLocationData(
@@ -393,12 +465,7 @@ function convertResultToLocationData(
     result.address || {};
 
   const city =
-    address.city ||
-    address.town ||
-    address.municipality ||
-    address.village ||
-    address.county ||
-    "";
+    getResultCity(result);
 
   return {
     lat: Number(result.lat),
@@ -434,8 +501,51 @@ function convertResultToLocationData(
 
 
 // ==========================================
-// 8. GEOCODE LOCATION
-// General dynamic search
+// 10. FETCH NOMINATIM
+// ==========================================
+
+async function fetchNominatim(
+  query
+) {
+  const url =
+    createSearchUrl(
+      query,
+      true
+    );
+
+  console.log(
+    "🔎 Searching:",
+    query
+  );
+
+  console.log(
+    "🔗 URL:",
+    url
+  );
+
+  const response =
+    await fetch(
+      url,
+      {
+        headers: {
+          Accept:
+            "application/json",
+        },
+      }
+    );
+
+  if (!response.ok) {
+    throw new Error(
+      `Geocoding failed: ${response.status}`
+    );
+  }
+
+  return await response.json();
+}
+
+
+// ==========================================
+// 11. GEOCODE LOCATION
 // ==========================================
 
 export async function geocodeLocation(
@@ -448,38 +558,45 @@ export async function geocodeLocation(
       !location.trim()
     ) {
       console.error(
-        "Location is empty"
+        "❌ Location is empty"
       );
 
       return null;
     }
 
+
     const searchText =
       location.trim();
+
 
     console.log(
       "================================"
     );
 
     console.log(
-      "🔎 Searching location:",
+      "📍 Searching Location:",
       searchText
     );
 
 
-    // ==========================================
+    // ========================================
+    // STEP 1
     // CONTEXT SEARCH
-    // Used when pickup city is known
-    // ==========================================
+    // ========================================
 
     if (
       context &&
       context.city
     ) {
+      const contextParts = [
+        searchText,
+        context.city,
+        context.state,
+        context.country || "India",
+      ].filter(Boolean);
+
       const contextQuery =
-        `${searchText}, ${context.city}` +
-        `${context.state ? ", " + context.state : ""}` +
-        `${context.country ? ", " + context.country : ""}`;
+        contextParts.join(", ");
 
       console.log(
         "📍 Context Search:",
@@ -487,178 +604,60 @@ export async function geocodeLocation(
       );
 
 
-      const contextUrl =
-        createSearchUrl(
-          contextQuery,
-          false
-        );
-
-      console.log(
-        "Context Search URL:",
-        contextUrl
-      );
-
-
-      const contextResponse =
-        await fetch(
-          contextUrl,
-          {
-            headers: {
-              Accept:
-                "application/json",
-            },
-          }
+      const contextData =
+        await fetchNominatim(
+          contextQuery
         );
 
 
       if (
-        contextResponse.ok
+        contextData &&
+        contextData.length > 0
       ) {
-        const contextData =
-          await contextResponse.json();
+        const contextResult =
+          selectBestResult(
+            contextData,
+            searchText,
+            context
+          );
 
 
-        console.log(
-          "Context Search Results:",
-          contextData
-        );
-
-
-        if (
-          contextData &&
-          contextData.length > 0
-        ) {
-          const contextResult =
-            selectBestResult(
-              contextData,
-              searchText,
-              context
+        if (contextResult) {
+          const locationData =
+            convertResultToLocationData(
+              contextResult,
+              searchText
             );
 
 
-          if (contextResult) {
-            const locationData =
-              convertResultToLocationData(
-                contextResult,
-                searchText
-              );
+          console.log(
+            "✅ Context Location Found:",
+            locationData
+          );
 
 
-            console.log(
-              "✅ Context Location Found:",
-              locationData
-            );
-
-
-            return locationData;
-          }
+          return locationData;
         }
       }
     }
 
 
-    // ==========================================
+    // ========================================
+    // STEP 2
     // NORMAL SEARCH
-    // ==========================================
+    // ========================================
 
-    let url =
-      createSearchUrl(
-        searchText,
-        false
+    const data =
+      await fetchNominatim(
+        `${searchText}, India`
       );
-
-    console.log(
-      "Search URL:",
-      url
-    );
-
-
-    let response =
-      await fetch(
-        url,
-        {
-          headers: {
-            Accept:
-              "application/json",
-          },
-        }
-      );
-
-
-    if (!response.ok) {
-      throw new Error(
-        `Geocoding failed: ${response.status}`
-      );
-    }
-
-
-    let data =
-      await response.json();
 
 
     console.log(
-      "General Search Results:",
+      "📍 General Search Results:",
       data
     );
 
-
-    // ==========================================
-    // INDIA FALLBACK
-    // ==========================================
-
-    if (
-      !data ||
-      data.length === 0
-    ) {
-      const indiaQuery =
-        `${searchText}, India`;
-
-      console.log(
-        "🇮🇳 Trying India Search:",
-        indiaQuery
-      );
-
-
-      url =
-        createSearchUrl(
-          indiaQuery,
-          true
-        );
-
-
-      response =
-        await fetch(
-          url,
-          {
-            headers: {
-              Accept:
-                "application/json",
-            },
-          }
-        );
-
-
-      if (!response.ok) {
-        throw new Error(
-          `India geocoding failed: ${response.status}`
-        );
-      }
-
-
-      data =
-        await response.json();
-
-
-      console.log(
-        "India Search Results:",
-        data
-      );
-    }
-
-
-    // ==========================================
-    // NO RESULT
-    // ==========================================
 
     if (
       !data ||
@@ -673,9 +672,10 @@ export async function geocodeLocation(
     }
 
 
-    // ==========================================
-    // SELECT BEST RESULT
-    // ==========================================
+    // ========================================
+    // STEP 3
+    // SELECT BEST
+    // ========================================
 
     const result =
       selectBestResult(
@@ -702,6 +702,7 @@ export async function geocodeLocation(
       locationData
     );
 
+
     console.log(
       "================================"
     );
@@ -722,7 +723,7 @@ export async function geocodeLocation(
 
 
 // ==========================================
-// 9. GET ROAD ROUTE
+// 12. GET ROAD ROUTE
 // ==========================================
 
 export async function getRouteData(
@@ -736,7 +737,7 @@ export async function getRouteData(
     );
 
     console.log(
-      "🚗 Getting road route..."
+      "🚗 GETTING ROAD ROUTE"
     );
 
     console.log(
@@ -750,10 +751,10 @@ export async function getRouteData(
     );
 
 
-    // ==========================================
+    // ========================================
     // STEP 1
     // GEOCODE PICKUP
-    // ==========================================
+    // ========================================
 
     const start =
       await geocodeLocation(
@@ -762,8 +763,9 @@ export async function getRouteData(
 
 
     if (!start) {
+
       console.error(
-        "❌ Pickup location not found:",
+        "❌ Pickup not found:",
         pickup
       );
 
@@ -772,36 +774,34 @@ export async function getRouteData(
 
 
     console.log(
-      "📍 Pickup Location:",
-      start
+      "📍 Pickup Coordinates:",
+      start.lat,
+      start.lon
     );
 
 
-    // ==========================================
+    // ========================================
     // STEP 2
-    // CREATE DYNAMIC DESTINATION CONTEXT
-    // ==========================================
+    // DESTINATION CONTEXT
+    // ========================================
 
     const destinationContext = {
       city: start.city,
-
       state: start.state,
-
-      country: start.country,
+      country: start.country || "India",
     };
 
 
     console.log(
-      "📌 Destination Search Context:",
+      "📍 Destination Context:",
       destinationContext
     );
 
 
-    // ==========================================
+    // ========================================
     // STEP 3
     // GEOCODE DESTINATION
-    // USING PICKUP CITY CONTEXT
-    // ==========================================
+    // ========================================
 
     const end =
       await geocodeLocation(
@@ -811,8 +811,9 @@ export async function getRouteData(
 
 
     if (!end) {
+
       console.error(
-        "❌ Destination location not found:",
+        "❌ Destination not found:",
         destination
       );
 
@@ -821,15 +822,16 @@ export async function getRouteData(
 
 
     console.log(
-      "🎯 Destination Location:",
-      end
+      "🎯 Destination Coordinates:",
+      end.lat,
+      end.lon
     );
 
 
-    // ==========================================
+    // ========================================
     // STEP 4
-    // VALIDATE SAME CITY WHEN POSSIBLE
-    // ==========================================
+    // CITY CHECK
+    // ========================================
 
     if (
       start.city &&
@@ -837,12 +839,12 @@ export async function getRouteData(
     ) {
 
       console.log(
-        "🏙️ Pickup City:",
+        "Pickup City:",
         start.city
       );
 
       console.log(
-        "🏙️ Destination City:",
+        "Destination City:",
         end.city
       );
 
@@ -853,18 +855,16 @@ export async function getRouteData(
       ) {
 
         console.warn(
-          "⚠️ Pickup and destination cities are different."
+          "⚠️ Pickup and destination are in different cities."
         );
-
       }
-
     }
 
 
-    // ==========================================
+    // ========================================
     // STEP 5
-    // OSRM ROAD ROUTE
-    // ==========================================
+    // OSRM ROUTE
+    // ========================================
 
     const routeUrl =
       "https://router.project-osrm.org/route/v1/driving/" +
@@ -880,10 +880,13 @@ export async function getRouteData(
 
 
     const routeResponse =
-      await fetch(routeUrl);
+      await fetch(
+        routeUrl
+      );
 
 
     if (!routeResponse.ok) {
+
       throw new Error(
         `Route service failed: ${routeResponse.status}`
       );
@@ -909,14 +912,19 @@ export async function getRouteData(
     }
 
 
-    // ==========================================
+    // ========================================
     // STEP 6
-    // FIRST ROAD ROUTE
-    // ==========================================
+    // FIRST ROUTE
+    // ========================================
 
     const route =
       routeData.routes[0];
 
+
+    // ========================================
+    // STEP 7
+    // ROAD DISTANCE
+    // ========================================
 
     const roadDistanceKm =
       Number(
@@ -926,18 +934,27 @@ export async function getRouteData(
       );
 
 
+    // ========================================
+    // STEP 8
+    // ROAD TIME
+    // ========================================
+
     const roadTimeMinutes =
       Math.round(
         route.duration / 60
       );
 
 
-    // ==========================================
-    // STEP 7
+    // ========================================
+    // STEP 9
     // CONVERT ROUTE COORDINATES
-    // OSRM [lon, lat]
-    // Leaflet [lat, lon]
-    // ==========================================
+    //
+    // OSRM:
+    // [longitude, latitude]
+    //
+    // Leaflet:
+    // [latitude, longitude]
+    // ========================================
 
     const routeCoordinates =
       route.geometry.coordinates.map(
@@ -948,10 +965,10 @@ export async function getRouteData(
       );
 
 
-    // ==========================================
-    // STEP 8
-    // COMPLETE ROUTE DATA
-    // ==========================================
+    // ========================================
+    // STEP 10
+    // COMPLETE DATA
+    // ========================================
 
     const completeRouteData = {
 
@@ -980,32 +997,45 @@ export async function getRouteData(
     );
 
     console.log(
-      "✅ COMPLETE ROAD ROUTE:",
-      completeRouteData
+      "✅ COMPLETE ROAD ROUTE"
     );
 
     console.log(
-      "📍 Correct Pickup:",
-      start.displayName,
+      "Pickup:",
+      start.displayName
+    );
+
+    console.log(
+      "Pickup Coordinates:",
       start.lat,
       start.lon
     );
 
     console.log(
-      "🎯 Correct Destination:",
-      end.displayName,
+      "Destination:",
+      end.displayName
+    );
+
+    console.log(
+      "Destination Coordinates:",
       end.lat,
       end.lon
     );
 
     console.log(
-      "📏 Road Distance:",
+      "Road Distance:",
       roadDistanceKm,
       "km"
     );
 
     console.log(
-      "🗺️ Route Points:",
+      "Road Time:",
+      roadTimeMinutes,
+      "minutes"
+    );
+
+    console.log(
+      "Route Points:",
       routeCoordinates.length
     );
 
