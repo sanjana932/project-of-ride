@@ -1,0 +1,130 @@
+.fare-calculator {
+  width: 100%;
+  max-width: 650px;
+  margin: 30px auto;
+  padding: 30px;
+  box-sizing: border-box;
+}
+
+.fare-calculator h1 {
+  text-align: center;
+  margin-bottom: 10px;
+}
+
+.fare-calculator h2 {
+  text-align: center;
+  font-weight: 400;
+  margin-bottom: 30px;
+}
+
+.input-group {
+  margin-bottom: 20px;
+}
+
+.input-group label {
+  display: block;
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.input-group input,
+.input-group select {
+  width: 100%;
+  padding: 15px;
+  font-size: 17px;
+  border: 1px solid #ccc;
+  border-radius: 10px;
+  box-sizing: border-box;
+  outline: none;
+}
+
+.input-group input:focus,
+.input-group select:focus {
+  border-color: #2563eb;
+}
+
+.check-fare-btn {
+  width: 100%;
+  padding: 16px;
+  border: none;
+  border-radius: 10px;
+  background: #16a34a;
+  color: white;
+  font-size: 19px;
+  cursor: pointer;
+  margin-top: 5px;
+}
+
+.check-fare-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.map-button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 15px;
+  border: 1px solid #999;
+  border-radius: 8px;
+  background: white;
+  color: #222;
+  font-size: 17px;
+  cursor: pointer;
+}
+
+.map-button:hover {
+  background: #f2f2f2;
+}
+
+.fare-result {
+  margin-top: 25px;
+  padding: 25px;
+  border-radius: 15px;
+  background: #f4fdf6;
+  border: 1px solid #b7e4c7;
+  text-align: center;
+}
+
+.fare-result h3 {
+  margin-top: 0;
+  font-size: 22px;
+}
+
+.fare-price {
+  font-size: 38px;
+  font-weight: bold;
+  margin: 10px 0 20px;
+}
+
+.fare-result p {
+  font-size: 16px;
+  margin: 8px;
+}
+
+.city-info {
+  font-weight: bold;
+}
+
+.error-message {
+  margin-top: 15px;
+  padding: 12px;
+  border-radius: 8px;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  color: #be123c;
+}
+
+.map-section {
+  margin-top: 25px;
+}
+
+.map-section h3 {
+  font-size: 22px;
+  margin-bottom: 5px;
+}
+
+.map-section p {
+  color: #555;
+  line-height: 1.5;
+}
