@@ -242,7 +242,7 @@ code {
   opacity: 0.9;
 }
 
-```css
+
 /* =========================
    Register / Login Page
 ========================= */
@@ -304,4 +304,4 @@ code {
 .auth-card .register-btn:hover {
   opacity: 0.9;
 }
-```
+

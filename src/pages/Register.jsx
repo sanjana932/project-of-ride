@@ -7,16 +7,37 @@ function Register() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("");
+
+  const [city, setCity] = useState("");
+  const [vehicle, setVehicle] = useState("");
+  const [standName, setStandName] = useState("");
 
   const navigate = useNavigate();
 
   const handleRegister = async () => {
-    // Check fields
-    if (!name || !email || !password || !role) {
-      alert("⚠️ Please fill all fields");
+    // Basic validation
+    if (!name || !email || !phone || !password || !role) {
+      alert("⚠️ Please fill all required fields");
       return;
+    }
+
+    // Driver validation
+    if (role === "driver") {
+      if (!city || !vehicle) {
+        alert("⚠️ Please select City and Vehicle");
+        return;
+      }
+    }
+
+    // Stand Owner validation
+    if (role === "standOwner") {
+      if (!city || !standName) {
+        alert("⚠️ Please enter City and Stand Name");
+        return;
+      }
     }
 
     try {
@@ -25,8 +46,12 @@ function Register() {
         {
           name,
           email,
+          phone,
           password,
           role,
+          city,
+          vehicle: role === "driver" ? vehicle : "Auto",
+          standName: role === "standOwner" ? standName : "",
         }
       );
 
@@ -40,7 +65,8 @@ function Register() {
       if (error.response) {
         alert(
           `❌ ${error.response.status}\n${
-            error.response.data.message || "Registration failed"
+            error.response.data.message ||
+            "Registration failed"
           }`
         );
       } else {
@@ -53,7 +79,6 @@ function Register() {
 
   return (
     <div className="auth-page">
-
       <div className="auth-card">
 
         <h1>📝 Register</h1>
@@ -76,9 +101,16 @@ function Register() {
           onChange={(e) => setEmail(e.target.value)}
         />
 
+        {/* Phone */}
+        <input
+          type="tel"
+          placeholder="Phone Number"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+        />
+
         {/* Password */}
         <div className="password-box">
-
           <input
             type={showPassword ? "text" : "password"}
             placeholder="Password"
@@ -93,18 +125,74 @@ function Register() {
           >
             {showPassword ? "🙈" : "👁️"}
           </button>
-
         </div>
 
         {/* Role */}
         <select
           value={role}
-          onChange={(e) => setRole(e.target.value)}
+          onChange={(e) => {
+            setRole(e.target.value);
+
+            // Reset role-specific fields
+            setVehicle("");
+            setStandName("");
+          }}
         >
           <option value="">Select Role</option>
           <option value="driver">🚗 Driver</option>
-          <option value="standOwner">🏢 Stand Owner</option>
+          <option value="standOwner">
+            🏢 Stand Owner
+          </option>
         </select>
+
+        {/* Driver Fields */}
+        {role === "driver" && (
+          <>
+            {/* City */}
+            <input
+              type="text"
+              placeholder="City"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+
+            {/* Vehicle */}
+            <select
+              value={vehicle}
+              onChange={(e) => setVehicle(e.target.value)}
+            >
+              <option value="">Select Vehicle</option>
+              <option value="Auto">🚗 Auto</option>
+              <option value="E-Rickshaw">
+                🛺 E-Rickshaw
+              </option>
+              <option value="Bike">🏍️ Bike</option>
+              <option value="Taxi">🚕 Taxi</option>
+              <option value="Bus">🚌 Bus</option>
+            </select>
+          </>
+        )}
+
+        {/* Stand Owner Fields */}
+        {role === "standOwner" && (
+          <>
+            {/* City */}
+            <input
+              type="text"
+              placeholder="City"
+              value={city}
+              onChange={(e) => setCity(e.target.value)}
+            />
+
+            {/* Stand Name */}
+            <input
+              type="text"
+              placeholder="Stand Name"
+              value={standName}
+              onChange={(e) => setStandName(e.target.value)}
+            />
+          </>
+        )}
 
         {/* Register Button */}
         <button
@@ -127,7 +215,6 @@ function Register() {
         </Link>
 
       </div>
-
     </div>
   );
 }
